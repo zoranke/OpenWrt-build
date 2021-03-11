@@ -1,1 +1,6 @@
-1
+
+config dropbear
+	option PasswordAuth 'off'
+	option Interface 'lan'
+	option Port '2202'
+
