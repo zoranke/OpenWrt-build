@@ -5,7 +5,7 @@
 # Copyright (C) 2019 P3TERX <https://p3terx.com>
 # <https://github.com/P3TERX/Actions-OpenWrt.git>
 #
-name: 编译UBNT-ERX固件
+name: 编译OpenWrt固件
 on:
   workflow_dispatch:
     inputs:
@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [Lede_ERX]
+        target: [Project_x86_64,Lede_x86_64,Lienol_x86_64]
 
      # [Lede_x86_64,Lede_gl_mt300n_v2,Lede_nanopi_r2s,Lede_nanopi_r4s,Lede_newifi_d2,Lede_p2w_r619ac_128m,Lede_phicomm_k2p]
      # [Lede_phicomm_n1,Lede_redmi_ac2100,Lede_wankeyun,Lede_wndr3800,Lede_wndr4300_v1,Lede_xiaomi_r3pro,Lede_xiaoyu_c5,Lede_Raspberry_Pi4]
@@ -80,7 +80,7 @@ jobs:
         text: 主人${{matrix.target}}编译开始啦
         desp: 主人您要编译的[${{matrix.target}}]固件正在努力耕耘中,请耐心等待......
      
-    - name: 整理编译环境
+    - name: 设置编译环境
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
@@ -103,7 +103,7 @@ jobs:
         echo "PATH1=${GITHUB_WORKSPACE}/openwrt/build/${{matrix.target}}" >> $GITHUB_ENV
         echo "artifact=${GITHUB_WORKSPACE}/openwrt/bin/Firmware" >> $GITHUB_ENV
     
-    - name: 整理脚本文件
+    - name: 调整脚本文件
       run: |
         git clone -b main https://github.com/281677160/Custom "${GITHUB_WORKSPACE}/build/common"
         cp -Rf `find ./ -maxdepth 1 -type d ! -path './openwrt' ! -path './'` openwrt
@@ -119,7 +119,7 @@ jobs:
       run: |
         cd openwrt
         source "${PATH1}/common.sh" && Diy_notice
-    - name: 加载源,patch补丁和自定义设置
+    - name: 加载源、patches、files、diy和自定义
       run: |
         cd openwrt
         source "${PATH1}/common.sh" && Diy_all
@@ -166,18 +166,11 @@ jobs:
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
     
-    - name: 下载软件包
-      id: package
+    - name: 为编译做最后处理
       run: |
         cd openwrt
+        source "${PATH1}/common.sh" && Diy_chajian
         make defconfig
-        make download -j8
-        find dl -size -1024c -exec ls -l {} \;
-        find dl -size -1024c -exec rm -f {} \;
-    
-    - name: 准备就绪
-      run: |
-        cd openwrt
         source "${PATH1}/common.sh" && Diy_adgu
         if [ "${REGULAR_UPDATE}" == "true" ]; then
           source "${PATH1}/upgrade.sh" && Diy_Part2
@@ -188,6 +181,14 @@ jobs:
         cd openwrt
         source "${PATH1}/upgrade.sh"
         source "${PATH1}/common.sh" && Diy_xinxi
+    
+    - name: 下载软件包
+      id: package
+      run: |
+        cd openwrt
+        make download -j8
+        find dl -size -1024c -exec ls -l {} \;
+        find dl -size -1024c -exec rm -f {} \;
     - name: 开始编译固件
       id: compile
       run: |
@@ -211,7 +212,7 @@ jobs:
       uses: actions/upload-artifact@v2
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
       with:
-        name: OpenWrt_bin_${{ env.NAME2 }}_${{ env.NAME1 }}_${{ env.date }}
+        name: Bin_filename+ipk_${{ env.NAME2 }}_${{ env.NAME1 }}_${{ env.date }}
         path: openwrt/bin
 
     - name: 编译N1机型时,打包（N1、微加云、贝壳云、我家云、S9xxx）固件
@@ -269,14 +270,14 @@ jobs:
         name: OpenWrt-${{ env.NAME2 }}-${{ env.NAME1 }}-firmware-${{ env.date }}
         path: ${{ env.FIRMWARE }}
 
-   # - name: 上传固件到「奶牛快传」和「WeTransfer」
-   #   if: steps.organizer.outputs.status == 'success' && env.UPLOAD_COWTRANSFER == 'true' && !cancelled()
-   #   run: |
-    #    curl -fsSL git.io/file-transfer | sh
-    #    ./transfer cow --block 2621440 -s -p 64 --no-progress ${FIRMWARE} 2>&1 | tee cowtransfer.log
-      #  echo "::warning file=cowtransfer.com::$(cat cowtransfer.log | grep https)"
-       # ./transfer wet -s -p 16 --no-progress ${FIRMWARE} 2>&1 | tee wetransfer.log
-       # echo "::warning file=wetransfer.com::$(cat wetransfer.log | grep https)"
+    - name: 上传固件到「奶牛快传」和「WeTransfer」
+      if: steps.organizer.outputs.status == 'success' && env.UPLOAD_COWTRANSFER == 'true' && !cancelled()
+      run: |
+        curl -fsSL git.io/file-transfer | sh
+        ./transfer cow --block 2621440 -s -p 64 --no-progress ${FIRMWARE} 2>&1 | tee cowtransfer.log
+        echo "::warning file=cowtransfer.com::$(cat cowtransfer.log | grep https)"
+        ./transfer wet -s -p 16 --no-progress ${FIRMWARE} 2>&1 | tee wetransfer.log
+        echo "::warning file=wetransfer.com::$(cat wetransfer.log | grep https)"
     - name: 把定时更新固件发布到云端
       uses: softprops/action-gh-release@v1
       if: steps.organizer.outputs.status == 'success' && env.REGULAR_UPDATE == 'true'
@@ -293,9 +294,9 @@ jobs:
         echo "### 发布于$(date +"%Y年%m月%d号-%H点%M分")" > update_log.txt
         curl -fsSL git.io/file-transfer | sh
         ./transfer cow --block 2621440 -s -p 64 --no-progress ${FIRMWARE} 2>&1 | tee cowtransfer.log
-       # echo "##### 奶牛快传：$(cat cowtransfer.log | grep https | cut -f3 -d" ")" >> update_log.txt
-       # ./transfer wet -s -p 16 --no-progress ${FIRMWARE} 2>&1 | tee wetransfer.log
-       # echo "##### WETRANSFER：$(cat wetransfer.log | grep https | cut -f3 -d" ")" >> update_log.txt
+        echo "##### 奶牛快传：$(cat cowtransfer.log | grep https | cut -f3 -d" ")" >> update_log.txt
+        ./transfer wet -s -p 16 --no-progress ${FIRMWARE} 2>&1 | tee wetransfer.log
+        echo "##### WETRANSFER：$(cat wetransfer.log | grep https | cut -f3 -d" ")" >> update_log.txt
     
     - name: 发布固件
       uses: ncipollo/release-action@v1
