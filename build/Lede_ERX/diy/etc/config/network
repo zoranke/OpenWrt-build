@@ -1,0 +1,68 @@
+
+config interface 'loopback'
+	option ifname 'lo'
+	option proto 'static'
+	option ipaddr '127.0.0.1'
+	option netmask '255.0.0.0'
+
+config globals 'globals'
+
+config interface 'lan'
+	option type 'bridge'
+	option ifname 'eth0.1'
+	option proto 'static'
+	option ipaddr '192.168.88.1'
+	option netmask '255.255.255.0'
+	option ip6ifaceid '::1'
+	option ip6assign '64'
+	list dns '192.168.88.1'
+
+config device 'lan_eth0_1_dev'
+	option name 'eth0.1'
+	option macaddr '78:8a:20:bd:b7:86'
+
+config interface 'wan'
+	option ifname 'eth0.2'
+	option proto 'pppoe'
+	option ipv6 'auto'
+	option username '02700785134'
+	option password '785134'
+	option mtu '1492'
+	option force_link '1'
+	option delegate '0'
+
+config device 'wan_eth0_2_dev'
+	option name 'eth0.2'
+	option macaddr '78:8a:20:bd:b7:87'
+
+config interface 'wan6'
+	option proto 'dhcpv6'
+	option reqaddress 'try'
+	option reqprefix 'auto'
+	option ifname 'eth0.2'
+	option force_link '1'
+
+config switch
+	option name 'switch0'
+	option reset '1'
+	option enable_vlan '1'
+
+config switch_vlan
+	option device 'switch0'
+	option vlan '1'
+	option vid '1'
+	option ports '6t 1 2 3'
+
+config switch_vlan
+	option device 'switch0'
+	option vlan '2'
+	option vid '2'
+	option ports '6t 0'
+
+config route
+	option netmask '255.255.255.255'
+	option interface 'lan'
+	option gateway '100.79.0.1'
+	option onlink '1'
+	option target '0.0.0.0'
+
