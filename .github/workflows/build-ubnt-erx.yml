@@ -20,7 +20,7 @@ on:
 
 env:
   LEDE: https://github.com/coolsnowwolf/lede
-  LIENOL: https://github.com/Lienol/openwrt
+  LIENOL: https://github.com/zoranke/openwrt
   PROJECT: https://github.com/immortalwrt/immortalwrt
   GITURL: https://github.com/${{github.repository}}
   TZ: Asia/Shanghai
