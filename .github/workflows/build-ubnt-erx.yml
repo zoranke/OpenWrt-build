@@ -36,13 +36,6 @@ jobs:
       matrix:
         target: [Lede_ERX]
 
-     # [Lede_x86_64,Lede_gl_mt300n_v2,Lede_nanopi_r2s,Lede_nanopi_r4s,Lede_newifi_d2,Lede_p2w_r619ac_128m,Lede_phicomm_k2p]
-     # [Lede_phicomm_n1,Lede_redmi_ac2100,Lede_wankeyun,Lede_wndr3800,Lede_wndr4300_v1,Lede_xiaomi_r3pro,Lede_xiaoyu_c5,Lede_Raspberry_Pi4]
-     
-     # [Lienol_phicomm_k2p,Lienol_phicomm_k3,Lienol_x86_64]
-
-     # [Project_x86_64,Project_nanopi_r2s,Project_nanopi_r4s,Project_newifi_d2,Project_phicomm_k3,Project_phicomm_n1,Project_xiaomi_ac2100,Project_xiaomi_mir3g,Project_xiaoyu_c5] 
-
      # 各个源码都直接打入了常用插件了，不需要自己再拉取插件，除非我的插件包跟源码自带的都没有，你就自己添加吧，说明的《各种命令的简单介绍》有教程。
      # 选择【Lede_phicomm_n1或Project_phicomm_n1】的机型文件夹编译的话，会自动编译出（ N1、微加云、贝壳云、我家云、S9xxx ）固件。
      # [Lede_opewrt,Lienol_opewrt,Project_opewrt] 分别为三个源码的公共文件,你没找到你要编译的机型就使用各源码的公共文件夹来编译就可以了。
@@ -214,23 +207,6 @@ jobs:
       with:
         name: Bin_filename+ipk_${{ env.NAME2 }}_${{ env.NAME1 }}_${{ env.date }}
         path: openwrt/bin
-
-    - name: 编译N1机型时,打包（N1、微加云、贝壳云、我家云、S9xxx）固件
-      run: |
-        cd openwrt
-        if [[ ${{matrix.target}} =~ (Lede_phicomm_n1|Project_phicomm_n1) ]]; then
-          source "${PATH1}/common.sh" && Diy_n1
-         cd out
-         for x in ${devices[*]}; do
-           cd $x
-           filename=$(ls | awk -F '.img' '{print $1}')
-           gzip *.img
-           cd ../
-           echo "firmware_$x=$filename" >> $GITHUB_ENV
-         done
-           cd ../../
-           mv -f reform/out/*/*.img.gz openwrt/bin/targets/armvirt/*
-        fi
     
     - name: 整理固件文件夹
       id: organizer
@@ -270,14 +246,6 @@ jobs:
         name: OpenWrt-${{ env.NAME2 }}-firmware-${{ env.date }}
         path: ${{ env.FIRMWARE }}
 
-    - name: 上传固件到「奶牛快传」和「WeTransfer」
-      if: steps.organizer.outputs.status == 'success' && env.UPLOAD_COWTRANSFER == 'true' && !cancelled()
-      run: |
-        curl -fsSL git.io/file-transfer | sh
-        ./transfer cow --block 2621440 -s -p 64 --no-progress ${FIRMWARE} 2>&1 | tee cowtransfer.log
-        echo "::warning file=cowtransfer.com::$(cat cowtransfer.log | grep https)"
-        ./transfer wet -s -p 16 --no-progress ${FIRMWARE} 2>&1 | tee wetransfer.log
-        echo "::warning file=wetransfer.com::$(cat wetransfer.log | grep https)"
     - name: 把定时更新固件发布到云端
       uses: softprops/action-gh-release@v1
       if: steps.organizer.outputs.status == 'success' && env.REGULAR_UPDATE == 'true'
@@ -292,11 +260,6 @@ jobs:
       if: steps.organizer.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
       run: |
         echo "### 发布于$(date +"%Y年%m月%d号-%H点%M分")" > update_log.txt
-        curl -fsSL git.io/file-transfer | sh
-        ./transfer cow --block 2621440 -s -p 64 --no-progress ${FIRMWARE} 2>&1 | tee cowtransfer.log
-        echo "##### 奶牛快传：$(cat cowtransfer.log | grep https | cut -f3 -d" ")" >> update_log.txt
-        ./transfer wet -s -p 16 --no-progress ${FIRMWARE} 2>&1 | tee wetransfer.log
-        echo "##### WETRANSFER：$(cat wetransfer.log | grep https | cut -f3 -d" ")" >> update_log.txt
     
     - name: 发布固件
       uses: ncipollo/release-action@v1
