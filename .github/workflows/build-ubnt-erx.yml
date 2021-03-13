@@ -23,6 +23,9 @@ env:
   LIENOL: https://github.com/zoranke/openwrt
   PROJECT: https://github.com/immortalwrt/immortalwrt
   GITURL: https://github.com/${{github.repository}}
+  Author: ${{github.actor}}
+  Run_number: ${{github.run_number}}
+  Run_workflow: ${{github.workflow}}
   TZ: Asia/Shanghai
 
 jobs:
@@ -44,7 +47,6 @@ jobs:
       run: |
         source "${GITHUB_WORKSPACE}/build/${{matrix.target}}/settings.ini"
         echo "Modelfile=${{matrix.target}}" >> $GITHUB_ENV
-        echo "Author=${{github.actor}}" >> $GITHUB_ENV
         echo "REPO_URL=${REPO_URL}" >> $GITHUB_ENV
         echo "REPO_BRANCH=${REPO_BRANCH}" >> $GITHUB_ENV
         echo "CONFIG_FILE=${CONFIG_FILE}" >> $GITHUB_ENV
@@ -66,7 +68,7 @@ jobs:
       with:
         SCKEY: ${{ secrets.SCKEY }}
         text: 主人${{matrix.target}}编译开始啦
-        desp: 主人您要编译的[${{matrix.target}}]固件正在努力耕耘中,请耐心等待......
+        desp: 主人您要编译的[${{matrix.target}}]固件正在努力耕耘中(#${{github.run_number}}),请耐心等待......
      
     - name: 设置编译环境
       env:
@@ -107,7 +109,7 @@ jobs:
       run: |
         cd openwrt
         source "${PATH1}/common.sh" && Diy_notice
-    - name: 加载源、patches、files、diy和自定义
+    - name: 加载源,patch补丁和自定义设置
       run: |
         cd openwrt
         source "${PATH1}/common.sh" && Diy_all
@@ -121,10 +123,6 @@ jobs:
         /bin/bash "${PATH1}/$DIY_P1_SH"
         ./scripts/feeds clean
         ./scripts/feeds update -a && ./scripts/feeds install -a
-        cp -Rf "${PATH1}/files" ./
-        chmod -R +x ${Home}/files
-        cp -Rf "${PATH1}/diy"/* ./
-        source "${PATH1}/common.sh" && Diy_all2
         if [[ "${REPO_URL}" == "${LEDE}" ]]; then
           source "${PATH1}/common.sh" && Diy_lede2
           echo "NAME2=Lede" >> $GITHUB_ENV
@@ -138,8 +136,17 @@ jobs:
           echo "NAME2=Project" >> $GITHUB_ENV
           echo "ZUOZHE=ctcgfw" >> $GITHUB_ENV
         fi
+        source "${PATH1}/common.sh" && Diy_all2
+        if [ -n "$(ls -A "${PATH1}/files" 2>/dev/null)" ]; then
+          cp -Rf "${PATH1}/files" "${Home}" && chmod -R +x ${Home}/files
+        fi
+        if [ -n "$(ls -A "${PATH1}/diy" 2>/dev/null)" ]; then
+          cp -Rf "${PATH1}"/diy/* "${Home}"
+        fi
+        if [ -n "$(ls -A "${PATH1}/patches" 2>/dev/null)" ]; then
+          find "${PATH1}/patches" -type f -name '*.patch' -print0 | sort -z | xargs -I % -t -0 -n 1 sh -c "cat '%'  | patch -d './' -p1 --forward --no-backup-if-mismatch"
+        fi
         /bin/bash "${PATH1}/$DIY_P2_SH"
-        find "${PATH1}/patches" -type f -name '*.patch' -print0 | sort -z | xargs -I % -t -0 -n 1 sh -c "cat '%'  | patch -d './' -p1 --forward --no-backup-if-mismatch"
         ./scripts/feeds install -a
         [ -e "$PATH1/$CONFIG_FILE" ] && mv "$PATH1/$CONFIG_FILE" .config
         if [[ "${REGULAR_UPDATE}" == "true" ]]; then
@@ -277,4 +284,4 @@ jobs:
       with:
         SCKEY: ${{ secrets.SCKEY }}
         text: 恭喜主人${{ env.NAME2 }}_${{ env.NAME1 }}固件编译成功！
-        desp: 我亲爱的主人您使用${{matrix.target}}文件夹编译的[ ${{ env.NAME2 }}-${{ env.NAME1 }} ]固件顺利编译完成了！
+        desp: 我亲爱的主人您使用${{matrix.target}}文件夹编译的[ ${{ env.NAME2 }}-${{ env.NAME1 }} ]固件(#${{github.run_number}})顺利编译完成了！
